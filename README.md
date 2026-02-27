@@ -106,6 +106,20 @@ The frontend now includes a **Cover Letter Builder** with:
 
 Use **Generate Cover Letter** to preview and **Download Cover Letter (.html)** for print/export.
 
+## Full CV Builder (in Streamlit)
+
+The frontend includes a **CV Builder (All Sections)** template with all major sections:
+- Profile
+- Core Competencies
+- Professional Experience
+- Education
+- Certifications
+- Projects
+- Languages
+- Referees
+
+Use **Generate Full CV** to preview and **Download Full CV (.html)**.
+
 ## API Endpoint
 
 ### `POST /summarize/`

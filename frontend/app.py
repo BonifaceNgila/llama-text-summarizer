@@ -274,6 +274,156 @@ def build_cover_letter_html(
 </html>
 """
 
+
+def _parse_simple_list(text: str) -> list[str]:
+    items = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("•"):
+            line = line[1:].strip()
+        if line.startswith("-"):
+            line = line[1:].strip()
+        items.append(line)
+    return items
+
+
+def _parse_experience(text: str) -> list[dict]:
+    entries = []
+    blocks = [block.strip() for block in text.split("\n\n") if block.strip()]
+    for block in blocks:
+        lines = [line.strip() for line in block.splitlines() if line.strip()]
+        if not lines:
+            continue
+        header = lines[0]
+        parts = [part.strip() for part in header.split("|")]
+        title = parts[0] if len(parts) > 0 else ""
+        org = parts[1] if len(parts) > 1 else ""
+        date = parts[2] if len(parts) > 2 else ""
+        bullets = []
+        for raw in lines[1:]:
+            item = raw
+            if item.startswith("•") or item.startswith("-"):
+                item = item[1:].strip()
+            bullets.append(item)
+        entries.append({"title": title, "org": org, "date": date, "bullets": bullets})
+    return entries
+
+
+def _parse_projects(text: str) -> list[dict]:
+    projects = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        parts = [part.strip() for part in line.split("|")]
+        while len(parts) < 5:
+            parts.append("")
+        projects.append(
+            {
+                "title": parts[0],
+                "description": parts[1],
+                "stack": parts[2],
+                "impact": parts[3],
+                "link": parts[4],
+            }
+        )
+    return projects
+
+
+def build_cv_html(cv: dict) -> str:
+    competencies_html = "".join(f"<li>{_escape_html(item)}</li>" for item in cv["competencies"])
+    experience_html = ""
+    for entry in cv["experience"]:
+        bullets = "".join(f"<li>{_escape_html(b)}</li>" for b in entry["bullets"])
+        experience_html += (
+            "<div class='entry'>"
+            f"<h4>{_escape_html(entry['title'])}</h4>"
+            f"<p class='meta'>{_escape_html(entry['org'])} | {_escape_html(entry['date'])}</p>"
+            f"<ul>{bullets}</ul>"
+            "</div>"
+        )
+
+    education_html = "".join(f"<li>{_escape_html(item)}</li>" for item in cv["education"])
+    certifications_html = "".join(f"<li>{_escape_html(item)}</li>" for item in cv["certifications"])
+    languages_html = "".join(f"<li>{_escape_html(item)}</li>" for item in cv["languages"])
+    referees_html = "".join(f"<li>{_escape_html(item)}</li>" for item in cv["referees"])
+
+    projects_html = ""
+    for project in cv["projects"]:
+        link_html = ""
+        if project["link"]:
+            safe_link = _escape_html(project["link"])
+            link_html = f"<p><strong>Link:</strong> <a href='{safe_link}' target='_blank'>{safe_link}</a></p>"
+        projects_html += (
+            "<div class='entry'>"
+            f"<h4>{_escape_html(project['title'])}</h4>"
+            f"<p>{_escape_html(project['description'])}</p>"
+            f"<p><strong>Tech stack:</strong> {_escape_html(project['stack'])}</p>"
+            f"<p><strong>Impact:</strong> {_escape_html(project['impact'])}</p>"
+            f"{link_html}"
+            "</div>"
+        )
+
+    return f"""
+<html>
+<head>
+  <meta charset='UTF-8'>
+  <title>CV - {_escape_html(cv['name'])}</title>
+  <style>
+    body {{ font-family: 'Segoe UI', Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; color:#0f172a; }}
+    .page {{ max-width:1100px; margin:auto; background:#fff; border-radius:10px; overflow:hidden; border:1px solid #dbe5f0; }}
+    .header {{ background:#1f3b5b; color:#f8fafc; padding:24px 30px; }}
+    .header h1 {{ margin:0; font-size:34px; }}
+    .headline {{ margin:6px 0 0 0; color:#dbeafe; }}
+    .contact {{ margin-top:10px; font-size:14px; color:#e2e8f0; }}
+    .grid {{ display:grid; grid-template-columns:1.8fr 1fr; gap:20px; padding:22px; }}
+    h2 {{ margin:0 0 8px 0; color:#1f3b5b; border-bottom:2px solid #bfdbfe; padding-bottom:4px; font-size:22px; }}
+    h4 {{ margin:0 0 4px 0; font-size:16px; color:#0f172a; }}
+    p {{ margin:0 0 8px 0; line-height:1.55; text-align:justify; }}
+    ul {{ margin:8px 0 12px 18px; }}
+    li {{ margin-bottom:6px; line-height:1.45; }}
+    .entry {{ margin-bottom:12px; }}
+    .meta {{ color:#475569; margin-bottom:6px; }}
+    a {{ color:#1d4ed8; }}
+  </style>
+</head>
+<body>
+  <div class='page'>
+    <div class='header'>
+      <h1>{_escape_html(cv['name'])}</h1>
+      <p class='headline'>{_escape_html(cv['headline'])}</p>
+      <p class='contact'>{_escape_html(cv['contact'])}</p>
+      <p class='contact'>{_escape_html(cv['links'])}</p>
+    </div>
+    <div class='grid'>
+      <div>
+        <h2>Profile</h2>
+        <p>{_escape_html(cv['profile'])}</p>
+        <h2>Professional Experience</h2>
+        {experience_html}
+        <h2>Projects</h2>
+        {projects_html}
+      </div>
+      <div>
+        <h2>Core Competencies</h2>
+        <ul>{competencies_html}</ul>
+        <h2>Education</h2>
+        <ul>{education_html}</ul>
+        <h2>Certifications</h2>
+        <ul>{certifications_html}</ul>
+        <h2>Languages</h2>
+        <ul>{languages_html}</ul>
+        <h2>Referees</h2>
+        <ul>{referees_html}</ul>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
         if theme == "Lilac Professional":
                 return f"""
 <html>
@@ -773,3 +923,101 @@ if generate_cover_letter:
             file_name="cover_letter.html",
             mime="text/html",
         )
+
+
+st.divider()
+st.subheader("CV Builder (All Sections)")
+st.caption("Includes Profile, Competencies, Experience, Education, Certifications, Projects, Languages, and Referees.")
+
+default_competencies_text = """Identity & Access Management: IAM lifecycle, SSO, MFA, Conditional Access; AD/Entra ID; OKTA
+Cloud & Platforms: AWS (in progress through Agentic AI program), Google Cloud Platform (GCP) basics; Azure AD/Entra ID; Microsoft 365
+AI/ML & Data: Basic ML concepts, data preparation, feature engineering, model evaluation; Vertex AI familiarity (Agent Builder concepts); RAG systems awareness; data governance and security practices
+ML Ops & Scripting: Python (pandas, numpy), PowerShell, Bash; basic ML workflow automation concepts
+Data & Databases: SQL (MySQL/MariaDB), data modeling, data quality and validation
+DevTools & Collaboration: Git/GitHub, ServiceNow (ticketing and incident management), SOPs and knowledge bases, documentation
+Networking & Security: TCP/IP, DNS, VPN, endpoint security basics
+Frontend/UX & Reporting: HTML/CSS basics; Streamlit (UI for small tools) (as applicable to internal tools)
+Other: REST APIs, FastAPI (concepts), data storage (SQLite basics)"""
+
+default_experience_text = """IT OFFICER | Plan International Kenya, Coastal Hub | March 2024
+- Managed IT infrastructure, servers, and networks to ensure high availability, security, and performance; implemented disaster recovery planning and monitoring.
+- Configured user access, virtualized environments, and server apps; enforced IAM governance, MFA/SSO, and least-privilege access.
+- Delivered Tier-1 to mid-level IT support; resolved complex access issues; conducted staff training on security best practices and authentication.
+- Maintained documentation, performance reporting, and knowledge base updates; supported ServiceNow ticket lifecycle for incidents and changes.
+- Participated in onboarding/offboarding processes and asset provisioning; collaborated with infrastructure teams to escalate and resolve complex issues.
+- Identified recurring problems and opportunities for automation to improve service delivery and reduce downtime.
+
+IT ASSISTANT | Plan International Kenya, Coastal Hub | November 2022
+- Executed user identity lifecycle activities; supported global directory services and SSO integrations; assisted with system upgrades, backups, and secure connectivity.
+- Delivered Tier 1 support for desktop, network, and infrastructure issues; configured Microsoft 365 apps and VPN connectivity.
+- Documented incidents and resolutions; mentored junior staff; contributed to team performance improvements.
+
+IT SUPPORT INTERN | Plan International Kenya, Coastal Hub | November 2021
+- Managed Global Active Directory and OKTA services; supported Exchange Online, SAP, and Office 365 access provisioning.
+- Enforced IT policies and security guidelines; provided end-user training on corporate apps; assisted in server/endpoint troubleshooting.
+- Supported incident analysis and cross-functional collaboration for faster issue resolution."""
+
+default_education_text = """Master of Science in Computer Science - UNICAF University - (Ongoing)
+Bachelor of Business Information Technology - Taita Taveta University - (November 2019)
+Kenya Certification of Secondary Education (KCSE) - Mayori Secondary School - (October 2014)"""
+
+default_certifications_text = """Oracle Cloud Infrastructure 2025 Certified DevOps Professional (Oct 25, 2025)
+Oracle Cloud Infrastructure 2025 Certified Architect Associate (Oct 23, 2025)
+Oracle Cloud Infrastructure 2025 Certified Foundations Associate (Aug 6, 2025)
+Google IT Support Professional Certification
+CIPIT Data Protection Course, Strathmore University
+IBM Data Analyst Professional Certification"""
+
+default_projects_text = """CV & COVER LETTER PORTFOLIO MANAGER | A database-driven portfolio manager for multi-profile CV versions and template-based cover letter exports. | Python, Streamlit, SQLite, ReportLab, python-docx | Accelerates tailored document creation across roles with consistent formatting and a centralized portfolio. | https://potfolio-jtibqpnbxqxuml8l6s8wb3.streamlit.app/
+END-TO-END SENTIMENT ANALYSIS APP | A full-stack sentiment analysis tool with local LLM inference. | Python, FastAPI, Streamlit, Ollama (Mistral) for on-device inference. | Enables quick experimentation with prompts and models while keeping inference on local hardware, reducing dependency on external services. | https://sentiment-analyzer-mistral-njc9wcbhgxudeckairs6uf.streamlit.app/
+TEXT SUMMARIZER WEB APP | A local LLM-powered text summarization web app with a REST API. | LLaMA (via Ollama), FastAPI, Streamlit. | Provides fast, offline NLP prototyping suitable for rapid feature testing and demonstrations. | https://llama-text-summarizer-ifrxwwqz6xleetpg4kwwe9.streamlit.app/"""
+
+default_languages_text = """English (Fluent)
+Swahili (Native)"""
+
+default_referees_text = """Winfred Mukonza | Plan International Kenya | Email: winfred.mukonza@plan-international.org | Phone: +254713267985
+Cynthia Akoth | Plan International Kenya | Email: cynthia.akoth@plan-international.org | Phone: +254707870390
+Sharon Meliyio | Plan International Kenya | Email: sharon.meliyio@plan-international.org | Phone: +254724917720"""
+
+with st.form("cv_full_form"):
+    cv_name = st.text_input("Full Name", value="BONIFACE MUTISYA NGILA")
+    cv_headline = st.text_input("Headline", value="Aspiring AI Solution Architect")
+    cv_contact = st.text_input("Contact", value="Kilifi, Kenya | +254792950816 | mutisyaboniface@outlook.com")
+    cv_links = st.text_input("Links", value="Boniface Ngila | LinkedIn | BonifaceNgila")
+    cv_profile = st.text_area("Profile", value="Aspiring AI Solutions Architect and ML Engineer with a strong foundation in General IT Operations, IAM, cloud services, and secure, scalable infrastructure. Currently enrolled in AWS Agentic AI Solutions Architect and Google Cloud ML Engineer programs, I am seeking an AI Intern role to apply hands-on Vertex AI, data preparation, prompt engineering, and MLOps practices on real-world insurance technology projects. Eager to contribute to AI feature development, data governance, and knowledge-base/reporting initiatives while growing into a full-fledged AI/ML engineer.", height=160)
+    cv_competencies = st.text_area("Core Competencies (one per line)", value=default_competencies_text, height=180)
+    cv_experience = st.text_area("Professional Experience (format: Role | Organization | Date, bullets below each)", value=default_experience_text, height=260)
+    cv_education = st.text_area("Education (one per line)", value=default_education_text, height=120)
+    cv_certifications = st.text_area("Certifications (one per line)", value=default_certifications_text, height=140)
+    cv_projects = st.text_area("Projects (format: Title | What it is | Tech stack | Impact | Link)", value=default_projects_text, height=180)
+    cv_languages = st.text_area("Languages (one per line)", value=default_languages_text, height=90)
+    cv_referees = st.text_area("Referees (one per line)", value=default_referees_text, height=120)
+    generate_cv_full = st.form_submit_button("Generate Full CV")
+
+if generate_cv_full:
+    cv_payload = {
+        "name": cv_name.strip(),
+        "headline": cv_headline.strip(),
+        "contact": cv_contact.strip(),
+        "links": cv_links.strip(),
+        "profile": cv_profile.strip(),
+        "competencies": _parse_simple_list(cv_competencies),
+        "experience": _parse_experience(cv_experience),
+        "education": _parse_simple_list(cv_education),
+        "certifications": _parse_simple_list(cv_certifications),
+        "projects": _parse_projects(cv_projects),
+        "languages": _parse_simple_list(cv_languages),
+        "referees": _parse_simple_list(cv_referees),
+    }
+    cv_html = build_cv_html(cv_payload)
+    st.session_state.cv_full_html = cv_html
+
+if "cv_full_html" in st.session_state and st.session_state.cv_full_html:
+    st.subheader("Full CV Preview")
+    st.components.v1.html(st.session_state.cv_full_html, height=1000, scrolling=True)
+    st.download_button(
+        label="Download Full CV (.html)",
+        data=st.session_state.cv_full_html,
+        file_name="full_cv.html",
+        mime="text/html",
+    )
