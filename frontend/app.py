@@ -432,6 +432,13 @@ st.divider()
 st.subheader("CV Projects Form")
 st.caption("Enter project details and generate a CV-ready Projects section.")
 
+if "projects_output" not in st.session_state:
+    st.session_state.projects_output = ""
+if "projects_output_html" not in st.session_state:
+    st.session_state.projects_output_html = ""
+if "projects_output_pdf" not in st.session_state:
+    st.session_state.projects_output_pdf = b""
+
 default_projects = [
     {
         "title": "CV & Cover Letter Portfolio Manager",
@@ -547,36 +554,43 @@ if generate_projects_section:
             except requests.exceptions.RequestException as exc:
                 st.warning(f"AI polish skipped: {exc}. Showing deterministic Projects output.")
 
-        st.subheader("Generated CV Projects Section")
-        st.markdown("## Projects")
-        st.markdown(final_output.replace("Projects", "", 1).strip())
+        st.session_state.projects_output = final_output
+        st.session_state.projects_output_html = build_projects_html(final_output)
+        st.session_state.projects_output_pdf = build_projects_pdf(final_output)
 
-        st.text_area(
-            "Print-ready Projects text",
-            value=final_output,
-            height=320,
-            key="projects_print_ready",
-        )
-        st.download_button(
-            label="Download Projects Section (.txt)",
-            data=final_output,
-            file_name="projects_section.txt",
-            mime="text/plain",
-        )
-        projects_html = build_projects_html(final_output)
-        st.download_button(
-            label="Download Projects Section (.html)",
-            data=projects_html,
-            file_name="projects_section.html",
-            mime="text/html",
-        )
-        projects_pdf = build_projects_pdf(final_output)
-        st.download_button(
-            label="Download Projects Section (.pdf)",
-            data=projects_pdf,
-            file_name="projects_section.pdf",
-            mime="application/pdf",
-        )
+if st.session_state.projects_output:
+    display_output = st.session_state.projects_output.strip()
+    if not display_output.lower().startswith("projects"):
+        display_output = f"Projects\n\n{display_output}"
+
+    st.subheader("Generated CV Projects Section")
+    st.markdown("## Projects")
+    st.markdown(display_output.split("\n", 1)[1].strip() if "\n" in display_output else "")
+
+    st.text_area(
+        "Print-ready Projects text",
+        value=display_output,
+        height=320,
+        key="projects_print_ready",
+    )
+    st.download_button(
+        label="Download Projects Section (.txt)",
+        data=display_output,
+        file_name="projects_section.txt",
+        mime="text/plain",
+    )
+    st.download_button(
+        label="Download Projects Section (.html)",
+        data=st.session_state.projects_output_html,
+        file_name="projects_section.html",
+        mime="text/html",
+    )
+    st.download_button(
+        label="Download Projects Section (.pdf)",
+        data=st.session_state.projects_output_pdf,
+        file_name="projects_section.pdf",
+        mime="application/pdf",
+    )
 
 
 st.divider()
