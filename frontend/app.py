@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 from io import BytesIO
+import base64
+from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
@@ -101,6 +103,310 @@ def build_projects_pdf(projects_text: str) -> bytes:
 
     pdf.save()
     return buffer.getvalue()
+
+
+def _image_to_data_uri(uploaded_file) -> str | None:
+        if uploaded_file is None:
+                return None
+        raw = uploaded_file.getvalue()
+        encoded = base64.b64encode(raw).decode("utf-8")
+        return f"data:{uploaded_file.type};base64,{encoded}"
+
+
+def _escape_html(text: str) -> str:
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def build_cover_letter_html(
+        location: str,
+        phone: str,
+        email: str,
+        subject: str,
+        recipient: str,
+        body: str,
+        closing_name: str,
+        role_line: str,
+        date_line: str,
+        theme: str,
+        profile_photo_uri: str | None,
+        signature_uri: str | None,
+) -> str:
+        safe_recipient = _escape_html(recipient)
+        safe_subject = _escape_html(subject)
+        safe_location = _escape_html(location)
+        safe_phone = _escape_html(phone)
+        safe_email = _escape_html(email)
+        safe_name = _escape_html(closing_name)
+        safe_role = _escape_html(role_line)
+        safe_date = _escape_html(date_line)
+
+        paragraphs = [part.strip() for part in body.split("\n\n") if part.strip()]
+        safe_body = "".join(
+                f"<p>{_escape_html(part).replace(chr(10), '<br>')}</p>" for part in paragraphs
+        )
+
+        photo_html = ""
+        if profile_photo_uri:
+                photo_html = f"<img src='{profile_photo_uri}' alt='Profile photo' class='profile-photo'/>"
+
+        signature_html = ""
+        if signature_uri:
+                signature_html = f"<img src='{signature_uri}' alt='Signature' class='signature'/>"
+
+        if theme == "Elegant Green Sidebar":
+                return f"""
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>Cover Letter</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background:#eef3ef; margin:0; padding:24px; color:#1f2937; }}
+        .page {{ max-width:1000px; margin:auto; background:#fff; display:grid; grid-template-columns:260px 1fr; min-height:1150px; }}
+        .left {{ background:#315f4a; color:#e8f3ed; padding:28px 22px; }}
+        .profile-photo {{ width:160px; height:160px; border-radius:50%; object-fit:cover; border:4px solid rgba(255,255,255,.3); margin:0 auto 18px auto; display:block; }}
+        .left h4 {{ margin:8px 0 10px 0; font-size:15px; color:#d0e8da; }}
+        .left p {{ margin:0 0 6px 0; line-height:1.4; }}
+        .right {{ padding:34px 40px; }}
+        .name {{ font-size:50px; line-height:1; margin:0; color:#7ca8a2; }}
+        .role {{ margin:8px 0 16px 0; font-size:26px; color:#3f4f4b; font-weight:600; }}
+        .date {{ color:#6b7280; margin:10px 0 16px 0; font-style:italic; }}
+        .subject {{ margin:0 0 10px 0; font-weight:700; color:#1f2937; }}
+        .recipient {{ margin:0 0 10px 0; }}
+        .body p {{ line-height:1.68; text-align:justify; margin:0 0 14px 0; }}
+        .signature {{ display:block; margin-top:14px; max-height:80px; max-width:230px; object-fit:contain; }}
+        .closing-name {{ margin-top:8px; font-weight:700; letter-spacing:0.4px; }}
+    </style>
+</head>
+<body>
+    <div class='page'>
+        <div class='left'>
+            {photo_html}
+            <h4>Contact</h4>
+            <p>{safe_location}</p>
+            <p>{safe_phone}</p>
+            <p>{safe_email}</p>
+        </div>
+        <div class='right'>
+            <h1 class='name'>{safe_name}</h1>
+            <div class='role'>{safe_role}</div>
+            <p class='date'>{safe_date}</p>
+            <p class='subject'>Subject: {safe_subject}</p>
+            <p class='recipient'>{safe_recipient}</p>
+            <div class='body'>{safe_body}</div>
+            <p>Sincerely,</p>
+            {signature_html}
+            <p class='closing-name'>{safe_name}</p>
+    </div>
+    </div>
+</body>
+</html>
+"""
+
+        if theme == "Lilac Professional":
+                return f"""
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>Cover Letter</title>
+    <style>
+        body {{ font-family:'Segoe UI',Arial,sans-serif; background:#ececec; margin:0; padding:22px; color:#1f2937; }}
+        .page {{ max-width:1000px; margin:auto; background:#f5f5f5; display:grid; grid-template-columns:280px 1fr; }}
+        .left {{ background:#d9b5e6; padding:28px 22px; }}
+        .profile-photo {{ width:150px; height:150px; border-radius:50%; object-fit:cover; border:6px solid rgba(255,255,255,.35); margin-bottom:24px; }}
+        .left h3 {{ margin:8px 0; font-size:30px; line-height:1.06; color:#303042; }}
+        .left .role {{ margin-bottom:20px; font-size:17px; color:#4b5563; }}
+        .left p {{ margin:0 0 8px 0; line-height:1.4; }}
+        .right {{ padding:34px 40px; }}
+        .right h1 {{ margin:0; font-size:56px; line-height:1.02; color:#32323e; }}
+        .right h2 {{ margin:6px 0 12px 0; color:#50515f; font-weight:500; }}
+        .date {{ font-size:30px; margin:10px 0 14px 0; color:#2f3346; font-weight:700; text-transform:uppercase; }}
+        .subject {{ margin:0 0 10px 0; font-weight:700; }}
+        .body p {{ line-height:1.65; margin:0 0 14px 0; text-align:justify; }}
+        .signature {{ display:block; margin-top:14px; max-height:80px; max-width:230px; object-fit:contain; }}
+        .closing-name {{ margin-top:10px; font-weight:700; font-size:28px; color:#2f3346; }}
+    </style>
+</head>
+<body>
+    <div class='page'>
+        <div class='left'>
+            {photo_html}
+            <h3>{safe_name}</h3>
+            <div class='role'>{safe_role}</div>
+            <p><strong>CONTACT</strong></p>
+            <p>{safe_location}</p>
+            <p>{safe_phone}</p>
+            <p>{safe_email}</p>
+        </div>
+        <div class='right'>
+            <h1>{safe_name}</h1>
+            <h2>{safe_role}</h2>
+            <p class='date'>{safe_date}</p>
+            <p class='subject'>Subject: {safe_subject}</p>
+            <p>{safe_recipient}</p>
+            <div class='body'>{safe_body}</div>
+            <p>Sincerely,</p>
+            {signature_html}
+            <p class='closing-name'>{safe_name}</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        if theme == "Dark Split":
+                return f"""
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>Cover Letter</title>
+    <style>
+        body {{ font-family:'Segoe UI',Arial,sans-serif; background:#efefef; margin:0; padding:0; color:#1f2937; }}
+        .top {{ display:grid; grid-template-columns:370px 1fr; background:#dadce0; }}
+        .photo-wrap {{ background:#2e2e34; padding:24px; display:flex; align-items:center; justify-content:center; }}
+        .profile-photo {{ width:180px; height:180px; border-radius:50%; object-fit:cover; border:8px solid #dedfe1; }}
+        .title {{ padding:28px 40px; }}
+        .title h1 {{ margin:0; font-size:72px; line-height:0.95; color:#272932; }}
+        .title .role {{ margin-top:10px; letter-spacing:5px; color:#3f4450; font-size:21px; }}
+        .info-bar {{ padding:14px 36px; border-top:4px solid #f8b400; border-bottom:1px solid #d3d7de; color:#272932; font-size:15px; }}
+        .page {{ display:grid; grid-template-columns:370px 1fr; min-height:1050px; }}
+        .left {{ background:#2e2e34; color:#f2f5f8; padding:34px 44px; }}
+        .left h3 {{ margin:0 0 12px 0; font-size:44px; letter-spacing:3px; }}
+        .left p {{ margin:0 0 8px 0; line-height:1.5; }}
+        .right {{ background:#f1f2f4; padding:34px 52px; }}
+        .right h2 {{ margin:0 0 12px 0; letter-spacing:2px; font-size:44px; color:#272932; }}
+        .date {{ margin-bottom:10px; font-weight:600; color:#4b5563; }}
+        .subject {{ margin:0 0 10px 0; font-weight:700; }}
+        .body p {{ line-height:1.7; text-align:justify; margin:0 0 14px 0; }}
+        .signature {{ display:block; margin-top:14px; max-height:78px; max-width:220px; object-fit:contain; }}
+    </style>
+</head>
+<body>
+    <div class='top'>
+        <div class='photo-wrap'>{photo_html}</div>
+        <div class='title'><h1>{safe_name}</h1><div class='role'>{safe_role}</div></div>
+    </div>
+    <div class='info-bar'>{safe_phone} | {safe_email} | {safe_location}</div>
+    <div class='page'>
+        <div class='left'>
+            <h3>INFO</h3>
+            <p>{safe_date}</p>
+            <p>To:</p>
+            <p>{safe_recipient}</p>
+            <p><strong>Position:</strong></p>
+            <p>{safe_subject}</p>
+        </div>
+        <div class='right'>
+            <h2>COVER LETTER</h2>
+            <div class='body'>{safe_body}</div>
+            <p>Sincerely,</p>
+            {signature_html}
+            <p><strong>{safe_name}</strong></p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        if theme == "Minimal Gray":
+                return f"""
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>Cover Letter</title>
+    <style>
+        body {{ font-family:'Segoe UI',Arial,sans-serif; background:#efefef; margin:0; padding:28px; color:#2f3743; }}
+        .page {{ max-width:980px; margin:auto; background:#f3f3f3; padding:34px 36px 44px 36px; }}
+        .header {{ display:grid; grid-template-columns:250px 1fr; gap:26px; margin-bottom:22px; }}
+        .profile-photo {{ width:170px; height:170px; border-radius:50%; object-fit:cover; border:4px solid #d2d7df; }}
+        .name {{ font-size:60px; margin:0; color:#1f2937; }}
+        .role {{ margin:8px 0 0 0; font-size:32px; color:#475569; }}
+        .content {{ display:grid; grid-template-columns:260px 1fr; gap:28px; }}
+        .side h4 {{ margin:0 0 10px 0; font-size:34px; color:#1f2937; }}
+        .side p {{ margin:0 0 10px 0; line-height:1.45; }}
+        .main .date {{ margin:0 0 16px 0; color:#6b7280; font-weight:600; }}
+        .main .subject {{ margin:0 0 10px 0; font-weight:700; }}
+        .body p {{ line-height:1.7; margin:0 0 14px 0; text-align:justify; }}
+        .signature {{ display:block; margin-top:14px; max-height:78px; max-width:230px; object-fit:contain; }}
+    </style>
+</head>
+<body>
+    <div class='page'>
+        <div class='header'>
+            <div>{photo_html}</div>
+            <div>
+                <h1 class='name'>{safe_name}</h1>
+                <p class='role'>{safe_role}</p>
+            </div>
+        </div>
+        <div class='content'>
+            <div class='side'>
+                <h4>Personal Info</h4>
+                <p><strong>Phone</strong><br>{safe_phone}</p>
+                <p><strong>Email</strong><br>{safe_email}</p>
+                <p><strong>Location</strong><br>{safe_location}</p>
+            </div>
+            <div class='main'>
+                <p class='date'>{safe_date}</p>
+                <p>{safe_recipient}</p>
+                <p class='subject'>Subject: {safe_subject}</p>
+                <div class='body'>{safe_body}</div>
+                <p>Kind regards,</p>
+                {signature_html}
+                <p><strong>{safe_name}</strong></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        return f"""
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>Cover Letter</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f3f6fb; margin: 0; padding: 24px; color: #0f172a; }}
+        .page {{ max-width: 900px; margin: auto; background: #ffffff; border: 1px solid #dbe5f0; border-radius: 10px; padding: 28px 34px; }}
+        .header {{ display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 1px solid #dbe5f0; padding-bottom: 14px; margin-bottom: 18px; }}
+        .contact p {{ margin: 0 0 5px 0; line-height: 1.35; }}
+        .profile-photo {{ width: 96px; height: 96px; border-radius: 10px; object-fit: cover; border: 1px solid #cbd5e1; }}
+        .name {{ margin:0; font-size:34px; color:#1f2937; }}
+        .role {{ margin:4px 0 0 0; color:#334155; }}
+        .date {{ margin: 14px 0 0 0; color:#64748b; }}
+        .subject {{ margin: 14px 0; font-weight: 600; }}
+        .recipient {{ margin-bottom: 14px; }}
+        .body p {{ line-height: 1.6; text-align: justify; margin:0 0 12px 0; }}
+        .closing {{ margin-top: 22px; }}
+        .signature {{ display: block; margin-top: 10px; max-height: 72px; max-width: 220px; object-fit: contain; }}
+        .closing-name {{ margin-top: 8px; font-weight: 700; letter-spacing: 0.2px; }}
+    </style>
+</head>
+<body>
+    <div class='page'>
+        <div class='header'>
+            <div class='contact'>
+                <h1 class='name'>{safe_name}</h1>
+                <p class='role'>{safe_role}</p>
+                <p class='date'>{safe_date}</p>
+                <p>{safe_location}</p>
+                <p>Phone: {safe_phone}</p>
+                <p>Email: {safe_email}</p>
+            </div>
+            <div>{photo_html}</div>
+        </div>
+        <p class='subject'>Subject: {safe_subject}</p>
+        <p class='recipient'>{safe_recipient}</p>
+        <div class='body'>{safe_body}</div>
+        <div class='closing'>
+            <p>Sincerely,</p>
+            {signature_html}
+            <p class='closing-name'>{safe_name}</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
 
 
 st.subheader("General Text Summarizer")
@@ -270,4 +576,82 @@ if generate_projects_section:
             data=projects_pdf,
             file_name="projects_section.pdf",
             mime="application/pdf",
+        )
+
+
+st.divider()
+st.subheader("Cover Letter Builder")
+st.caption("Pick a theme style, then upload display picture and signature for final placement.")
+
+default_cover_letter_body = (
+    "Dear Jubilee Life Insurance Recruitment Team,\n"
+    "I am writing to express my interest in the AI Intern position (Job Ref. JLIL385) at Jubilee Life Insurance Limited. "
+    "My journey toward becoming a Solution Architect for agentic systems has been self-directed and project-driven, "
+    "combining IT operations expertise with hands-on AI/ML prototyping.\n\n"
+    "I designed and built three end-to-end projects as deliberate steps on this path: a CV & Cover Letter Portfolio Manager, "
+    "an End-to-End Sentiment Analysis App, and a Text Summarizer Web App. These experiences have sharpened my ability to "
+    "translate business needs into scalable, production-ready AI solutions, a core capability I am eager to bring to Jubilee’s "
+    "AI and data initiatives.\n\n"
+    "What drew me to Jubilee is your emphasis on data governance, security, and practical AI engineering within an insurance context. "
+    "My projects have been guided by a similar mindset: robust architecture, secure data handling, and clear documentation while "
+    "delivering tangible value.\n\n"
+    "In terms of technical alignment, I bring hands-on experience with Python, REST API design, and full-stack AI prototyping. "
+    "I would welcome the opportunity to discuss how my self-directed journey and demonstrated projects can contribute to Jubilee Life Insurance’s AI roadmap.\n\n"
+    "Thank you for considering my application."
+)
+
+with st.form("cover_letter_form"):
+    cl_theme = st.selectbox(
+        "Template / Theme",
+        options=[
+            "Classic Clean",
+            "Elegant Green Sidebar",
+            "Lilac Professional",
+            "Dark Split",
+            "Minimal Gray",
+        ],
+        index=0,
+    )
+    cl_location = st.text_input("Location", value="Kilifi, Kenya")
+    cl_phone = st.text_input("Phone", value="+254792950816")
+    cl_email = st.text_input("Email", value="mutisyaboniface@outlook.com")
+    cl_date = st.text_input("Date", value=datetime.now().strftime("%d %B %Y"))
+    cl_subject = st.text_input("Subject", value="AI Intern Application – JLIL385 (Boniface Mutisya Ngila)")
+    cl_recipient = st.text_input("Recipient", value="Dear Jubilee Life Insurance Recruitment Team,")
+    cl_body = st.text_area("Body", value=default_cover_letter_body, height=280)
+    cl_name = st.text_input("Closing Name", value="BONIFACE MUTISYA NGILA")
+    cl_role = st.text_input("Role Line", value="IT Officer | IAM | IT Operations | Security")
+    cl_photo = st.file_uploader("Upload Display Picture", type=["png", "jpg", "jpeg"], key="cover_letter_photo")
+    cl_signature = st.file_uploader("Upload Signature", type=["png", "jpg", "jpeg"], key="cover_letter_signature")
+    generate_cover_letter = st.form_submit_button("Generate Cover Letter")
+
+if generate_cover_letter:
+    if not cl_body.strip():
+        st.warning("Please provide cover letter body text.")
+    else:
+        photo_uri = _image_to_data_uri(cl_photo)
+        signature_uri = _image_to_data_uri(cl_signature)
+
+        cover_letter_html = build_cover_letter_html(
+            location=cl_location.strip(),
+            phone=cl_phone.strip(),
+            email=cl_email.strip(),
+            subject=cl_subject.strip(),
+            recipient=cl_recipient.strip(),
+            body=cl_body.strip(),
+            closing_name=cl_name.strip(),
+            role_line=cl_role.strip(),
+            date_line=cl_date.strip(),
+            theme=cl_theme,
+            profile_photo_uri=photo_uri,
+            signature_uri=signature_uri,
+        )
+
+        st.subheader("Cover Letter Preview")
+        st.components.v1.html(cover_letter_html, height=900, scrolling=True)
+        st.download_button(
+            label="Download Cover Letter (.html)",
+            data=cover_letter_html,
+            file_name="cover_letter.html",
+            mime="text/html",
         )

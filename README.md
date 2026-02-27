@@ -86,6 +86,25 @@ The app guarantees the section heading **Projects** in display and output. You c
 - **Download Projects Section (.html)**
 - **Download Projects Section (.pdf)**
 
+## Cover Letter Builder (in Streamlit)
+
+The frontend now includes a **Cover Letter Builder** with:
+- Multiple template/theme options:
+  - Classic Clean
+  - Elegant Green Sidebar
+  - Lilac Professional
+  - Dark Split
+  - Minimal Gray
+- Header rendered at the top of the letter
+- Contact details (location, phone, email)
+- Date field
+- Subject and recipient fields
+- Cover letter body and closing details
+- **Upload Display Picture** (placed in the top header)
+- **Upload Signature** (placed above closing name)
+
+Use **Generate Cover Letter** to preview and **Download Cover Letter (.html)** for print/export.
+
 ## API Endpoint
 
 ### `POST /summarize/`
