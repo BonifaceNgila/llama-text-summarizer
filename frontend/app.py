@@ -117,6 +117,60 @@ def _escape_html(text: str) -> str:
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _clean_cover_letter_body(
+    body: str,
+    location: str,
+    phone: str,
+    email: str,
+    subject: str,
+    closing_name: str,
+) -> str:
+    header_lines = {
+        location.strip().lower(),
+        f"phone: {phone.strip().lower()}",
+        phone.strip().lower(),
+        f"email: {email.strip().lower()}",
+        email.strip().lower(),
+        f"subject: {subject.strip().lower()}",
+        subject.strip().lower(),
+        closing_name.strip().lower(),
+    }
+
+    cleaned_lines = []
+    for line in body.splitlines():
+        normalized = line.strip().lower()
+        if normalized in header_lines:
+            continue
+        cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines).strip()
+
+
+def build_selected_projects_html(projects: list[dict] | None) -> str:
+    if not projects:
+        return ""
+
+    items = []
+    for project in projects:
+        title = _escape_html(project.get("title", "").strip())
+        what = _escape_html(project.get("what", "").strip())
+        impact = _escape_html(project.get("impact", "").strip())
+        stack = _escape_html(project.get("stack", "").strip())
+
+        if not title:
+            continue
+
+        details_parts = [part for part in [what, impact] if part]
+        details = " — ".join(details_parts)
+        stack_line = f"<br><span class='project-stack'>Tech: {stack}</span>" if stack else ""
+        items.append(f"<li><strong>{title}</strong><br>{details}{stack_line}</li>")
+
+    if not items:
+        return ""
+
+    return "<div class='projects'><h3>Selected Projects</h3><ul>" + "".join(items) + "</ul></div>"
+
+
 def build_cover_letter_html(
         location: str,
         phone: str,
@@ -128,9 +182,19 @@ def build_cover_letter_html(
         role_line: str,
         date_line: str,
         theme: str,
+        projects: list[dict] | None,
         profile_photo_uri: str | None,
         signature_uri: str | None,
 ) -> str:
+    cleaned_body = _clean_cover_letter_body(
+        body=body,
+        location=location,
+        phone=phone,
+        email=email,
+        subject=subject,
+        closing_name=closing_name,
+    )
+
         safe_recipient = _escape_html(recipient)
         safe_subject = _escape_html(subject)
         safe_location = _escape_html(location)
@@ -140,7 +204,7 @@ def build_cover_letter_html(
         safe_role = _escape_html(role_line)
         safe_date = _escape_html(date_line)
 
-        paragraphs = [part.strip() for part in body.split("\n\n") if part.strip()]
+        paragraphs = [part.strip() for part in cleaned_body.split("\n\n") if part.strip()]
         safe_body = "".join(
                 f"<p>{_escape_html(part).replace(chr(10), '<br>')}</p>" for part in paragraphs
         )
@@ -152,6 +216,8 @@ def build_cover_letter_html(
         signature_html = ""
         if signature_uri:
                 signature_html = f"<img src='{signature_uri}' alt='Signature' class='signature'/>"
+
+        projects_section_html = build_selected_projects_html(projects)
 
         if theme == "Elegant Green Sidebar":
                 return f"""
@@ -173,6 +239,11 @@ def build_cover_letter_html(
         .subject {{ margin:0 0 10px 0; font-weight:700; color:#1f2937; }}
         .recipient {{ margin:0 0 10px 0; }}
         .body p {{ line-height:1.68; text-align:justify; margin:0 0 14px 0; }}
+        .projects {{ margin-top:18px; }}
+        .projects h3 {{ margin:0 0 8px 0; color:#1f2937; }}
+        .projects ul {{ margin:0; padding-left:20px; }}
+        .projects li {{ margin-bottom:8px; line-height:1.5; }}
+        .project-stack {{ color:#4b5563; font-size:14px; }}
         .signature {{ display:block; margin-top:14px; max-height:80px; max-width:230px; object-fit:contain; }}
         .closing-name {{ margin-top:8px; font-weight:700; letter-spacing:0.4px; }}
     </style>
@@ -193,6 +264,7 @@ def build_cover_letter_html(
             <p class='subject'>Subject: {safe_subject}</p>
             <p class='recipient'>{safe_recipient}</p>
             <div class='body'>{safe_body}</div>
+            {projects_section_html}
             <p>Sincerely,</p>
             {signature_html}
             <p class='closing-name'>{safe_name}</p>
@@ -222,6 +294,11 @@ def build_cover_letter_html(
         .date {{ font-size:30px; margin:10px 0 14px 0; color:#2f3346; font-weight:700; text-transform:uppercase; }}
         .subject {{ margin:0 0 10px 0; font-weight:700; }}
         .body p {{ line-height:1.65; margin:0 0 14px 0; text-align:justify; }}
+        .projects {{ margin-top:16px; }}
+        .projects h3 {{ margin:0 0 8px 0; font-size:22px; color:#32323e; }}
+        .projects ul {{ margin:0; padding-left:20px; }}
+        .projects li {{ margin-bottom:8px; line-height:1.5; }}
+        .project-stack {{ color:#4b5563; font-size:14px; }}
         .signature {{ display:block; margin-top:14px; max-height:80px; max-width:230px; object-fit:contain; }}
         .closing-name {{ margin-top:10px; font-weight:700; font-size:28px; color:#2f3346; }}
     </style>
@@ -244,6 +321,7 @@ def build_cover_letter_html(
             <p class='subject'>Subject: {safe_subject}</p>
             <p>{safe_recipient}</p>
             <div class='body'>{safe_body}</div>
+            {projects_section_html}
             <p>Sincerely,</p>
             {signature_html}
             <p class='closing-name'>{safe_name}</p>
@@ -277,6 +355,11 @@ def build_cover_letter_html(
         .date {{ margin-bottom:10px; font-weight:600; color:#4b5563; }}
         .subject {{ margin:0 0 10px 0; font-weight:700; }}
         .body p {{ line-height:1.7; text-align:justify; margin:0 0 14px 0; }}
+        .projects {{ margin-top:14px; }}
+        .projects h3 {{ margin:0 0 8px 0; color:#272932; letter-spacing:1px; }}
+        .projects ul {{ margin:0; padding-left:20px; }}
+        .projects li {{ margin-bottom:8px; line-height:1.5; }}
+        .project-stack {{ color:#4b5563; font-size:14px; }}
         .signature {{ display:block; margin-top:14px; max-height:78px; max-width:220px; object-fit:contain; }}
     </style>
 </head>
@@ -298,6 +381,7 @@ def build_cover_letter_html(
         <div class='right'>
             <h2>COVER LETTER</h2>
             <div class='body'>{safe_body}</div>
+            {projects_section_html}
             <p>Sincerely,</p>
             {signature_html}
             <p><strong>{safe_name}</strong></p>
@@ -326,6 +410,11 @@ def build_cover_letter_html(
         .main .date {{ margin:0 0 16px 0; color:#6b7280; font-weight:600; }}
         .main .subject {{ margin:0 0 10px 0; font-weight:700; }}
         .body p {{ line-height:1.7; margin:0 0 14px 0; text-align:justify; }}
+        .projects {{ margin-top:14px; }}
+        .projects h3 {{ margin:0 0 8px 0; color:#1f2937; }}
+        .projects ul {{ margin:0; padding-left:20px; }}
+        .projects li {{ margin-bottom:8px; line-height:1.5; }}
+        .project-stack {{ color:#4b5563; font-size:14px; }}
         .signature {{ display:block; margin-top:14px; max-height:78px; max-width:230px; object-fit:contain; }}
     </style>
 </head>
@@ -350,6 +439,7 @@ def build_cover_letter_html(
                 <p>{safe_recipient}</p>
                 <p class='subject'>Subject: {safe_subject}</p>
                 <div class='body'>{safe_body}</div>
+                {projects_section_html}
                 <p>Kind regards,</p>
                 {signature_html}
                 <p><strong>{safe_name}</strong></p>
@@ -377,6 +467,11 @@ def build_cover_letter_html(
         .subject {{ margin: 14px 0; font-weight: 600; }}
         .recipient {{ margin-bottom: 14px; }}
         .body p {{ line-height: 1.6; text-align: justify; margin:0 0 12px 0; }}
+        .projects {{ margin-top:14px; }}
+        .projects h3 {{ margin:0 0 8px 0; color:#1f2937; }}
+        .projects ul {{ margin:0; padding-left:20px; }}
+        .projects li {{ margin-bottom:8px; line-height:1.5; }}
+        .project-stack {{ color:#4b5563; font-size:14px; }}
         .closing {{ margin-top: 22px; }}
         .signature {{ display: block; margin-top: 10px; max-height: 72px; max-width: 220px; object-fit: contain; }}
         .closing-name {{ margin-top: 8px; font-weight: 700; letter-spacing: 0.2px; }}
@@ -398,6 +493,7 @@ def build_cover_letter_html(
         <p class='subject'>Subject: {safe_subject}</p>
         <p class='recipient'>{safe_recipient}</p>
         <div class='body'>{safe_body}</div>
+        {projects_section_html}
         <div class='closing'>
             <p>Sincerely,</p>
             {signature_html}
@@ -438,6 +534,8 @@ if "projects_output_html" not in st.session_state:
     st.session_state.projects_output_html = ""
 if "projects_output_pdf" not in st.session_state:
     st.session_state.projects_output_pdf = b""
+if "projects_catalog" not in st.session_state:
+    st.session_state.projects_catalog = []
 
 default_projects = [
     {
@@ -462,6 +560,9 @@ default_projects = [
         "impact": "Provides fast, offline NLP prototyping suitable for rapid feature testing and demonstrations.",
     },
 ]
+
+if not st.session_state.projects_catalog:
+    st.session_state.projects_catalog = default_projects
 
 with st.form("projects_form"):
     st.markdown("### Project 1")
@@ -557,6 +658,7 @@ if generate_projects_section:
         st.session_state.projects_output = final_output
         st.session_state.projects_output_html = build_projects_html(final_output)
         st.session_state.projects_output_pdf = build_projects_pdf(final_output)
+        st.session_state.projects_catalog = valid_projects
 
 if st.session_state.projects_output:
     display_output = st.session_state.projects_output.strip()
@@ -637,6 +739,7 @@ with st.form("cover_letter_form"):
     cl_role = st.text_input("Role Line", value="IT Officer | IAM | IT Operations | Security")
     cl_photo = st.file_uploader("Upload Display Picture", type=["png", "jpg", "jpeg"], key="cover_letter_photo")
     cl_signature = st.file_uploader("Upload Signature", type=["png", "jpg", "jpeg"], key="cover_letter_signature")
+    cl_include_projects = st.checkbox("Include Selected Projects in letter", value=True)
     generate_cover_letter = st.form_submit_button("Generate Cover Letter")
 
 if generate_cover_letter:
@@ -657,6 +760,7 @@ if generate_cover_letter:
             role_line=cl_role.strip(),
             date_line=cl_date.strip(),
             theme=cl_theme,
+            projects=st.session_state.projects_catalog if cl_include_projects else [],
             profile_photo_uri=photo_uri,
             signature_uri=signature_uri,
         )

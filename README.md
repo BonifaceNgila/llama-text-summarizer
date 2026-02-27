@@ -100,6 +100,7 @@ The frontend now includes a **Cover Letter Builder** with:
 - Date field
 - Subject and recipient fields
 - Cover letter body and closing details
+- Optional **Include Selected Projects in letter** (uses your project list)
 - **Upload Display Picture** (placed in the top header)
 - **Upload Signature** (placed above closing name)
 
