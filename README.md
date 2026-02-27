@@ -4,6 +4,11 @@ A simple local text summarization app using:
 - **FastAPI** backend
 - **Streamlit** frontend
 - **Ollama** (`llama2`) as the local LLM
+<<<<<<< HEAD
+=======
+- <img width="624" height="750" alt="image" src="https://github.com/user-attachments/assets/1d18822c-fdf6-401d-b1c9-28231b1b20be" />
+
+>>>>>>> 35f57d559ce37796f28f1db330f933bc95e6b005
 
 ## Project Structure
 
