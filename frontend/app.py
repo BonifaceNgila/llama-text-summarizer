@@ -1,5 +1,8 @@
 import streamlit as st
 import requests
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 st.title("LLaMA Text Summarizer")
 
@@ -11,6 +14,93 @@ def call_summarize_api(text: str, timeout: int = 60) -> str:
     )
     response.raise_for_status()
     return response.json().get("summary", "Error generating output.")
+
+
+def build_projects_section(projects: list[dict]) -> str:
+    lines = ["Projects", ""]
+    for project in projects:
+        lines.append(f"- {project['title']}")
+        if project["what"]:
+            lines.append(f"  - {project['what']}")
+        if project["stack"]:
+            lines.append(f"  - Tech stack: {project['stack']}")
+        if project["capabilities"]:
+            lines.append(f"  - Key capabilities: {project['capabilities']}")
+        if project["impact"]:
+            lines.append(f"  - Impact: {project['impact']}")
+        lines.append("")
+    return "\n".join(lines).strip()
+
+
+def build_projects_html(projects_text: str) -> str:
+    escaped = (
+        projects_text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+    return (
+        "<html><head><meta charset='UTF-8'><title>Projects Section</title>"
+        "<style>body{font-family:Segoe UI,Arial,sans-serif;margin:32px;color:#0f172a;}"
+        "h1{margin-bottom:12px;}pre{white-space:pre-wrap;line-height:1.5;font-size:14px;}"
+        "</style></head><body><h1>Projects</h1><pre>"
+        f"{escaped}"
+        "</pre></body></html>"
+    )
+
+
+def build_projects_pdf(projects_text: str) -> bytes:
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    page_width, page_height = A4
+
+    left_margin = 50
+    right_margin = 50
+    top_margin = 60
+    bottom_margin = 50
+    line_height = 16
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(left_margin, page_height - top_margin, "Projects")
+
+    pdf.setFont("Helvetica", 11)
+    y = page_height - top_margin - 28
+    max_width = page_width - left_margin - right_margin
+
+    for raw_line in projects_text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            y -= line_height
+            if y < bottom_margin:
+                pdf.showPage()
+                pdf.setFont("Helvetica", 11)
+                y = page_height - top_margin
+            continue
+
+        words = line.split(" ")
+        current_line = ""
+        for word in words:
+            candidate = word if not current_line else f"{current_line} {word}"
+            if pdf.stringWidth(candidate, "Helvetica", 11) <= max_width:
+                current_line = candidate
+            else:
+                pdf.drawString(left_margin, y, current_line)
+                y -= line_height
+                if y < bottom_margin:
+                    pdf.showPage()
+                    pdf.setFont("Helvetica", 11)
+                    y = page_height - top_margin
+                current_line = word
+
+        if current_line:
+            pdf.drawString(left_margin, y, current_line)
+            y -= line_height
+            if y < bottom_margin:
+                pdf.showPage()
+                pdf.setFont("Helvetica", 11)
+                y = page_height - top_margin
+
+    pdf.save()
+    return buffer.getvalue()
 
 
 st.subheader("General Text Summarizer")
@@ -81,6 +171,7 @@ with st.form("projects_form"):
     p3_stack = st.text_input("Project 3 - Tech stack", value=default_projects[2]["stack"])
     p3_capabilities = st.text_area("Project 3 - Key capabilities", value=default_projects[2]["capabilities"])
     p3_impact = st.text_area("Project 3 - Impact", value=default_projects[2]["impact"])
+    use_ai_polish = st.checkbox("Use AI polish (optional)", value=True)
 
     generate_projects_section = st.form_submit_button("Generate CV Projects Section")
 
@@ -114,50 +205,69 @@ if generate_projects_section:
     if not valid_projects:
         st.warning("Please enter at least one project title.")
     else:
-        projects_text = "\n\n".join(
-            [
-                (
-                    f"Title: {project['title']}\n"
-                    f"What it is: {project['what']}\n"
-                    f"Tech stack: {project['stack']}\n"
-                    f"Key capabilities: {project['capabilities']}\n"
-                    f"Impact: {project['impact']}"
-                )
-                for project in valid_projects
-            ]
-        )
+        deterministic_output = build_projects_section(valid_projects)
+        final_output = deterministic_output
 
-        prompt = (
-            "Rewrite the projects below into a professional CV Projects section. "
-            "Use concise ATS-friendly bullet points and keep each project clear and impact-oriented. "
-            "Start the response with the exact heading: Projects\n\n"
-            f"{projects_text}"
-        )
-
-        try:
-            cv_projects_section = call_summarize_api(prompt, timeout=90)
-            cleaned_section = cv_projects_section.strip()
-            if not cleaned_section.lower().startswith("projects"):
-                cleaned_section = f"Projects\n\n{cleaned_section}"
-
-            st.subheader("Generated CV Projects Section")
-            st.markdown(cleaned_section)
-
-            st.text_area(
-                "Print-ready Projects text",
-                value=cleaned_section,
-                height=320,
-                key="projects_print_ready",
+        if use_ai_polish:
+            projects_text = "\n\n".join(
+                [
+                    (
+                        f"Title: {project['title']}\n"
+                        f"What it is: {project['what']}\n"
+                        f"Tech stack: {project['stack']}\n"
+                        f"Key capabilities: {project['capabilities']}\n"
+                        f"Impact: {project['impact']}"
+                    )
+                    for project in valid_projects
+                ]
             )
-            st.download_button(
-                label="Download Projects Section (.txt)",
-                data=cleaned_section,
-                file_name="projects_section.txt",
-                mime="text/plain",
+
+            prompt = (
+                "Rewrite the projects below into a professional CV Projects section. "
+                "Use concise ATS-friendly bullet points and keep each project clear and impact-oriented. "
+                "Return plain text only. The first line must be exactly: Projects\n\n"
+                f"{projects_text}"
             )
-        except requests.exceptions.ConnectionError:
-            st.error("Cannot connect to backend at http://localhost:8000. Start FastAPI first.")
-        except requests.exceptions.Timeout:
-            st.error("Request timed out. The model may be busy; try again.")
-        except requests.exceptions.RequestException as exc:
-            st.error(f"Request failed: {exc}")
+
+            try:
+                cv_projects_section = call_summarize_api(prompt, timeout=90).strip()
+                if not cv_projects_section.lower().startswith("projects"):
+                    cv_projects_section = f"Projects\n\n{cv_projects_section}"
+                final_output = cv_projects_section
+            except requests.exceptions.ConnectionError:
+                st.warning("AI polish skipped: cannot connect to backend. Showing deterministic Projects output.")
+            except requests.exceptions.Timeout:
+                st.warning("AI polish skipped: request timed out. Showing deterministic Projects output.")
+            except requests.exceptions.RequestException as exc:
+                st.warning(f"AI polish skipped: {exc}. Showing deterministic Projects output.")
+
+        st.subheader("Generated CV Projects Section")
+        st.markdown("## Projects")
+        st.markdown(final_output.replace("Projects", "", 1).strip())
+
+        st.text_area(
+            "Print-ready Projects text",
+            value=final_output,
+            height=320,
+            key="projects_print_ready",
+        )
+        st.download_button(
+            label="Download Projects Section (.txt)",
+            data=final_output,
+            file_name="projects_section.txt",
+            mime="text/plain",
+        )
+        projects_html = build_projects_html(final_output)
+        st.download_button(
+            label="Download Projects Section (.html)",
+            data=projects_html,
+            file_name="projects_section.html",
+            mime="text/html",
+        )
+        projects_pdf = build_projects_pdf(final_output)
+        st.download_button(
+            label="Download Projects Section (.pdf)",
+            data=projects_pdf,
+            file_name="projects_section.pdf",
+            mime="application/pdf",
+        )
