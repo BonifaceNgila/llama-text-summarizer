@@ -129,14 +129,32 @@ if generate_projects_section:
 
         prompt = (
             "Rewrite the projects below into a professional CV Projects section. "
-            "Use concise ATS-friendly bullet points and keep each project clear and impact-oriented.\n\n"
+            "Use concise ATS-friendly bullet points and keep each project clear and impact-oriented. "
+            "Start the response with the exact heading: Projects\n\n"
             f"{projects_text}"
         )
 
         try:
             cv_projects_section = call_summarize_api(prompt, timeout=90)
+            cleaned_section = cv_projects_section.strip()
+            if not cleaned_section.lower().startswith("projects"):
+                cleaned_section = f"Projects\n\n{cleaned_section}"
+
             st.subheader("Generated CV Projects Section")
-            st.write(cv_projects_section)
+            st.markdown(cleaned_section)
+
+            st.text_area(
+                "Print-ready Projects text",
+                value=cleaned_section,
+                height=320,
+                key="projects_print_ready",
+            )
+            st.download_button(
+                label="Download Projects Section (.txt)",
+                data=cleaned_section,
+                file_name="projects_section.txt",
+                mime="text/plain",
+            )
         except requests.exceptions.ConnectionError:
             st.error("Cannot connect to backend at http://localhost:8000. Start FastAPI first.")
         except requests.exceptions.Timeout:
